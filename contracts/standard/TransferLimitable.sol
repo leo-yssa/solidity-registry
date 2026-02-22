@@ -2,15 +2,17 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./StdErrors.sol";
 
 abstract contract TransferLimitable is Ownable {
-    uint256 private _transferLimit;
-    uint256 private _minBalanceToTransfer;
+    uint256 internal _transferLimit;
+    uint256 internal _minBalanceToTransfer;
 
     // Mapping from token ID to transfer count
     mapping(uint256 => uint256) private _transferCounts;
 
     event TransferLimitChanged(uint256 newTransferLimit);
+    event MinBalanceToTransferChanged(uint256 newMinBalance);
 
     function setTransferLimit(uint256 transferLimit) public onlyOwner {
         _transferLimit = transferLimit;
@@ -19,6 +21,17 @@ abstract contract TransferLimitable is Ownable {
 
     function setMinBalanceToTransfer(uint256 minBalance) public onlyOwner {
         _minBalanceToTransfer = minBalance;
+        emit MinBalanceToTransferChanged(minBalance);
+    }
+
+    function _setTransferLimit(uint256 transferLimit) internal {
+        _transferLimit = transferLimit;
+        emit TransferLimitChanged(transferLimit);
+    }
+
+    function _setMinBalanceToTransfer(uint256 minBalance) internal {
+        _minBalanceToTransfer = minBalance;
+        emit MinBalanceToTransferChanged(minBalance);
     }
 
     function getTransferCount(uint256 tokenId) public view returns (uint256) {
@@ -46,7 +59,10 @@ abstract contract TransferLimitable is Ownable {
 
     modifier checkMinimumBalanceToTransfer(address from, address to) {
         if (from != address(0) && to != address(0)) {
-            require(_minBalanceToTransfer < balanceOf(from), "Transfer is limited by balance");
+            uint256 bal = balanceOf(from);
+            if (bal <= _minBalanceToTransfer) {
+                revert StdErrors.TransferLimitedByBalance(_minBalanceToTransfer, bal);
+            }
         }
         _;
     }

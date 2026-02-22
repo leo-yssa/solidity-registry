@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "./ATagPausableMinter.sol";
+import "../StdErrors.sol";
 
 abstract contract AExternalContractMinter is ATagPausableMinter {
     IStandard private standardInstance;
@@ -20,52 +21,58 @@ abstract contract AExternalContractMinter is ATagPausableMinter {
 
     function mappedAirdrop(MappedAirdropRecipient[] calldata recipients) external override virtual onlyOwner {
         for (uint256 i = 0; i < recipients.length; i++) {
-            standardInstance.transferFrom(this.seller(), recipients[i].receiver, recipients[i].tokenId);
+            standardInstance.transferFrom(seller, recipients[i].receiver, recipients[i].tokenId);
         }
     }
 
-    function mintPreSale(MintingToken[] calldata tokens, bytes32[] calldata _merkleProof) external override virtual payable {
+    function mintPreSale(MintingToken[] calldata tokens, bytes32[] calldata _merkleProof) external override virtual payable nonReentrant {
         uint256 amount = tokens.length;
-        require(block.timestamp >= preMintStart, "presale is not open yet");
-        require(block.timestamp <= preMintEnd, "presale is ended");
-        require(amount > 0, "Amount to mint should be a positive number");
-        require(amount <= preMintTxMaxAmount, "You can mint up to 10 per transaction");
+        _enforceMinterPolicy();
 
-        address minter = _msgSender();
-        require(tx.origin == minter, "Contracts are not allowed to mint");
-        require(currentPreMintAmount + amount <= preMintLimit, "Cannot mint the beyond max preMintLimit");
-        require(preMintPrice * amount == msg.value, "Payment is not equal to price");
+        uint256 nowTs = block.timestamp;
+        if (nowTs < preMintStart) revert StdErrors.SaleNotStarted(preMintStart, nowTs);
+        if (nowTs > preMintEnd) revert StdErrors.SaleEnded(preMintEnd, nowTs);
+        if (amount == 0) revert StdErrors.MintAmountZero();
+        if (amount > preMintTxMaxAmount) revert StdErrors.MintAmountTooLarge(amount, preMintTxMaxAmount);
+
+        if (currentPreMintAmount + amount > preMintLimit) revert StdErrors.MintLimitExceeded(currentPreMintAmount, amount, preMintLimit);
+
+        uint256 expected = preMintPrice * amount;
+        if (expected != msg.value) revert StdErrors.IncorrectPayment(expected, msg.value);
 
         bytes32 leafHash = keccak256(abi.encodePacked(msg.sender));
-        require(MerkleProof.verify(_merkleProof, merkleRootHash, leafHash), "Your wallet is not in whitelist");
+        if (!MerkleProof.verify(_merkleProof, merkleRootHash, leafHash)) revert StdErrors.InvalidMerkleProof();
 
         _mintToken(msg.sender, tokens);
 
         currentPreMintAmount += amount;
-        payable(withdrawAddress).transfer(msg.value);
+        _forwardFunds(msg.value);
     }
 
-    function mintPublicSale(MintingToken[] calldata tokens) external override virtual payable {
+    function mintPublicSale(MintingToken[] calldata tokens) external override virtual payable nonReentrant {
         uint256 amount = tokens.length;
-        require(block.timestamp >= publicMintStart, "Public sale is not open yet");
-        require(block.timestamp <= publicMintEnd, "Public sale is ended");
-        require(amount > 0, "Amount to mint should be a positive number");
-        require(amount <= publicMintTxMaxAmount, "You can mint up to 10 per transaction");
+        _enforceMinterPolicy();
 
-        address minter = _msgSender();
-        require(tx.origin == minter, "Contracts are not allowed to mint");
-        require(currentPublicMintAmount + amount <= publicMintLimit, "Cannot mint the beyond max publicMintLimit");
-        require(publicMintPrice * amount == msg.value, "Payment is not equal to price");
+        uint256 nowTs = block.timestamp;
+        if (nowTs < publicMintStart) revert StdErrors.SaleNotStarted(publicMintStart, nowTs);
+        if (nowTs > publicMintEnd) revert StdErrors.SaleEnded(publicMintEnd, nowTs);
+        if (amount == 0) revert StdErrors.MintAmountZero();
+        if (amount > publicMintTxMaxAmount) revert StdErrors.MintAmountTooLarge(amount, publicMintTxMaxAmount);
+
+        if (currentPublicMintAmount + amount > publicMintLimit) revert StdErrors.MintLimitExceeded(currentPublicMintAmount, amount, publicMintLimit);
+
+        uint256 expected = publicMintPrice * amount;
+        if (expected != msg.value) revert StdErrors.IncorrectPayment(expected, msg.value);
 
         _mintToken(msg.sender, tokens);
 
         currentPublicMintAmount += amount;
-        payable(withdrawAddress).transfer(msg.value);
+        _forwardFunds(msg.value);
     }
 
     function _mintToken(address newOwner, MintingToken[] calldata tokens) internal override virtual {
         for (uint256 i = 0; i < tokens.length; i++) {
-            standardInstance.transferFrom(this.seller(), newOwner, tokens[i].tokenId);
+            standardInstance.transferFrom(seller, newOwner, tokens[i].tokenId);
         }
     }
 }

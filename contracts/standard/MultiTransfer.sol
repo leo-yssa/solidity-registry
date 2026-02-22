@@ -2,11 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
+import "./StdErrors.sol";
 
 contract MultiTransfer is Ownable {
-    using Strings for uint256;
-
     struct TransferRecipient {
         address payable receiver;
         uint256 amount;
@@ -25,13 +23,15 @@ contract MultiTransfer is Ownable {
         for (uint256 i = 0; i < recipients.length; i++) {
             totalAmount += recipients[i].amount;
         }
-        require(totalAmount == msg.value, "Insufficient amount sent");
+        if (totalAmount != msg.value) revert StdErrors.IncorrectPayment(totalAmount, msg.value);
 
         for (uint256 i = 0; i < recipients.length; i++) {
-            require(!isContract(recipients[i].receiver), "Cannot send to contract address");
+            if (isContract(recipients[i].receiver)) revert StdErrors.RecipientIsContract(recipients[i].receiver);
 
-            bool success = recipients[i].receiver.send(recipients[i].amount);
-            require(success, string(abi.encodePacked("Transfer failed in ", (i + 1).toString(), "th order")));
+            (bool ok, ) = recipients[i].receiver.call{value: recipients[i].amount}("");
+            if (!ok) {
+                revert StdErrors.EthTransferFailed(recipients[i].receiver, recipients[i].amount);
+            }
         }
     }
 }

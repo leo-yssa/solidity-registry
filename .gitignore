@@ -1,0 +1,15 @@
+node_modules/
+dist/
+out/
+coverage/
+coverage.json
+typechain/
+typechain-types/
+lib/interfaces/
+artifacts/
+cache/
+.hardhat/
+gasReporterOutput.json
+.env
+.DS_Store
+

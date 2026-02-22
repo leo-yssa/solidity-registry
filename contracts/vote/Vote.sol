@@ -4,7 +4,6 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "../math/SafeMath.sol";
 import "./IVote.sol";
 
 contract Vote is IVote {
@@ -119,15 +118,8 @@ contract Vote is IVote {
         info.count += 1;
 
         info.paiedReward += info.perReward;
-
-        uint256 minus_money = SafeMath.sub(
-            payable(address(this)).balance,
-            info.perReward
-        );
-
-        payable(_voter).transfer(
-            SafeMath.sub(payable(address(this)).balance, minus_money)
-        );
+        (bool ok, ) = payable(_voter).call{value: info.perReward}("");
+        require(ok, "ETH transfer failed");
         info.balance = payable(address(this)).balance;
     }
 
@@ -142,26 +134,26 @@ contract Vote is IVote {
 
     function complete(address _owner) external onlyController {
         require(_owner == info.owner, "only owner can stop vote");
-        info.refundedReward = SafeMath.sub(info.totalReward, info.paiedReward);
+        info.refundedReward = info.totalReward - info.paiedReward;
         require(
-            SafeMath.add(info.paiedReward, info.refundedReward) ==
-                info.totalReward,
+            info.paiedReward + info.refundedReward == info.totalReward,
             "invalid refund balance"
         );
-        payable(info.owner).transfer(info.refundedReward);
+        (bool ok, ) = payable(info.owner).call{value: info.refundedReward}("");
+        require(ok, "ETH transfer failed");
         info.balance = payable(address(this)).balance;
         info.completed = true;
     }
 
     function refund(address _owner) external payable onlyController {
         require(_owner == info.owner, "only owner can refund");
-        info.refundedReward = SafeMath.sub(info.totalReward, info.paiedReward);
+        info.refundedReward = info.totalReward - info.paiedReward;
         require(
-            SafeMath.add(info.paiedReward, info.refundedReward) ==
-                info.totalReward,
+            info.paiedReward + info.refundedReward == info.totalReward,
             "invalid refund balance"
         );
 
-        payable(info.owner).transfer(info.refundedReward);
+        (bool ok, ) = payable(info.owner).call{value: info.refundedReward}("");
+        require(ok, "ETH transfer failed");
     }
 }

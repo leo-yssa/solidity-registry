@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "./StdErrors.sol";
 
 contract Standard is ERC721, Pausable, AccessControl, ERC721Burnable, Ownable {
     using Strings for uint256;
@@ -18,6 +19,9 @@ contract Standard is ERC721, Pausable, AccessControl, ERC721Burnable, Ownable {
     bool private _revealed;
     uint256 public tokenOffset;
     uint256 public immutable maxSupply;
+
+    event BaseURIUpdated(string baseURI);
+    event TokenOffsetSet(uint256 offset);
 
     constructor(
         string memory name,
@@ -50,14 +54,16 @@ contract Standard is ERC721, Pausable, AccessControl, ERC721Burnable, Ownable {
 
     //Reveal
     function setTokenOffset(uint256 offset) external onlyRole(MINTER_ROLE) {
-        require(!_revealed, "Already Revealed");
+        if (_revealed) revert StdErrors.AlreadyRevealed();
 
         _revealed = true;
         tokenOffset = offset;
+        emit TokenOffsetSet(offset);
     }
 
     function setBaseURI(string memory baseURI) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _originalsBaseURI = baseURI;
+        emit BaseURIUpdated(baseURI);
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -79,7 +85,7 @@ contract Standard is ERC721, Pausable, AccessControl, ERC721Burnable, Ownable {
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        require(_exists(tokenId), "Invalid token ID");
+        if (!_exists(tokenId)) revert StdErrors.InvalidTokenId(tokenId);
 
         uint256 shiftedTokenId = ((tokenId + tokenOffset) % maxSupply);
         string memory baseURI = _baseURI();

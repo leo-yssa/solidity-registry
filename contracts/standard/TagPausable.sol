@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "./StdErrors.sol";
+
 abstract contract TagPausable {
 
     mapping(string => bool) public tagExistsMap;
@@ -9,18 +11,19 @@ abstract contract TagPausable {
 
     modifier whenTagNotPaused(uint256 tokenId) {
         string memory tagName = tagByTokenId[tokenId];
-        require(tagExistsMap[tagName], "tag is unavailable");
-        require(!tagPausedMap[tagName], "tag is paused");
+        if (!tagExistsMap[tagName]) revert StdErrors.TagUnavailable(tagName);
+        if (tagPausedMap[tagName]) revert StdErrors.TagPaused(tagName);
         _;
     }
 
     modifier whenTagExists(string memory tagName) {
-        require(tagExistsMap[tagName] == true, "tag is unavailable");
+        if (!tagExistsMap[tagName]) revert StdErrors.TagUnavailable(tagName);
         _;
     }
 
     event TagExistenceUpdated(string indexed tagName, bool exist);
     event TagAssignedToTokenId(uint256 indexed tokenId, string tagName);
+    event TagPausedStatusUpdated(string indexed tagName, bool paused);
 
     function isTagOnPaused(uint256 tokenId) external view virtual returns (bool) {
         string memory tagName = tagByTokenId[tokenId];
@@ -41,5 +44,6 @@ abstract contract TagPausable {
 
     function _updateTagPausedStatus(string memory tagName, bool pause) internal virtual whenTagExists(tagName) {
         tagPausedMap[tagName] = pause;
+        emit TagPausedStatusUpdated(tagName, pause);
     }
 }

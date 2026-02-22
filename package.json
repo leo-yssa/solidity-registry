@@ -1,0 +1,64 @@
+{
+  "name": "solidity-registry",
+  "version": "1.8.5",
+  "author": {
+    "name": "leo-yssa",
+    "email": "yssa@kakao.com"
+  },
+  "description": "Solidity registry",
+  "license": "MIT",
+  "files": [
+    "dist/lib",
+    "contracts"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.cjs",
+    "test": "XDG_CONFIG_HOME=./.hardhat/xdg/config XDG_DATA_HOME=./.hardhat/xdg/data XDG_CACHE_HOME=./.hardhat/xdg/cache HARDHAT_DISABLE_TELEMETRY=1 hardhat test",
+    "run:polygon": "hardhat --network matic run",
+    "run:amoy": "hardhat --network amoy run",
+    "clean": "hardhat clean",
+    "compile": "hardhat compile",
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@chainlink/contracts": "^1.1.1",
+    "@openzeppelin/contracts": "^4.9.6",
+    "@types/node": "^18.11.18",
+    "axios": "^1.3.4",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.0",
+    "ethers": "^5.6.9",
+    "js-big-decimal": "^1.4.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.9.3"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
+    "@nomiclabs/hardhat-ethers": "^2.2.2",
+    "@typechain/ethers-v5": "^10.2.0",
+    "@typechain/hardhat": "^6.1.5",
+    "@types/chai": "^4.3.16",
+    "@types/chai-as-promised": "^7.1.8",
+    "@types/mocha": "^10.0.6",
+    "@typescript-eslint/eslint-plugin": "^5.54.0",
+    "@typescript-eslint/parser": "^5.54.0",
+    "chai": "^4.3.8",
+    "chai-as-promised": "^7.1.1",
+    "dotenv": "^16.0.3",
+    "eslint": "^8.35.0",
+    "eslint-config-prettier": "^8.6.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-simple-import-sort": "^10.0.0",
+    "hardhat": "^2.12.5",
+    "hardhat-gas-reporter": "^1.0.9",
+    "merkletreejs": "^0.3.10",
+    "mocha": "^10.4.0",
+    "prettier": "^2.8.4",
+    "prettier-plugin-solidity": "^1.1.3",
+    "solidity-coverage": "^0.8.2",
+    "typechain": "^8.1.1"
+  },
+  "main": "dist/lib/index.js",
+  "types": "dist/lib/index.d.ts"
+}

@@ -2,10 +2,12 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "../IStandard.sol";
+import "../StdErrors.sol";
 
-abstract contract AStandardMinter is Ownable {
+abstract contract AStandardMinter is Ownable, ReentrancyGuard {
     uint256 public nextMintIndex;
 
     // Public-Sale Values
@@ -24,6 +26,25 @@ abstract contract AStandardMinter is Ownable {
 
     address public withdrawAddress;
     bytes32 public merkleRootHash;
+    bool public enforceEOA;
+
+    event WithdrawAddressUpdated(address indexed previous, address indexed current);
+    event MerkleRootUpdated(bytes32 previous, bytes32 current);
+    event EnforceEOAUpdated(bool enforceEOA);
+    event PreSaleValuesUpdated(
+        uint256 txMaxAmount,
+        uint256 price,
+        uint256 start,
+        uint256 end,
+        uint256 limit
+    );
+    event PublicSaleValuesUpdated(
+        uint256 txMaxAmount,
+        uint256 price,
+        uint256 start,
+        uint256 end,
+        uint256 limit
+    );
 
     struct MappedAirdropRecipient {
         address receiver;
@@ -37,17 +58,28 @@ abstract contract AStandardMinter is Ownable {
     IStandard private standardInstance;
 
     constructor(address nftAddress, address withdrawAddress_, bytes32 merkleRootHash_) {
+        if (nftAddress == address(0) || withdrawAddress_ == address(0)) revert StdErrors.ZeroAddress();
         standardInstance = IStandard(nftAddress);
         withdrawAddress = withdrawAddress_;
         merkleRootHash = merkleRootHash_;
     }
 
     function setMerkleRootHash(bytes32 merkleRootHash_) external onlyOwner {
+        bytes32 prev = merkleRootHash;
         merkleRootHash = merkleRootHash_;
+        emit MerkleRootUpdated(prev, merkleRootHash_);
     }
 
     function setWithdrawAddress(address withdrawAddress_) external onlyOwner {
+        if (withdrawAddress_ == address(0)) revert StdErrors.ZeroAddress();
+        address prev = withdrawAddress;
         withdrawAddress = withdrawAddress_;
+        emit WithdrawAddressUpdated(prev, withdrawAddress_);
+    }
+
+    function setEnforceEOA(bool enforceEOA_) external onlyOwner {
+        enforceEOA = enforceEOA_;
+        emit EnforceEOAUpdated(enforceEOA_);
     }
 
     function setPreSaleValues(
@@ -62,6 +94,7 @@ abstract contract AStandardMinter is Ownable {
         preMintStart = _preMintStart;
         preMintEnd = _preMintEnd;
         preMintLimit = _preMintLimit;
+        emit PreSaleValuesUpdated(_preMintTxMaxAmount, _preMintPrice, _preMintStart, _preMintEnd, _preMintLimit);
     }
 
     function setPublicSaleValues(
@@ -76,58 +109,83 @@ abstract contract AStandardMinter is Ownable {
         publicMintStart = _publicMintStart;
         publicMintEnd = _publicMintEnd;
         publicMintLimit = _publicMintLimit;
+        emit PublicSaleValuesUpdated(
+            _publicMintTxMaxAmount,
+            _publicMintPrice,
+            _publicMintStart,
+            _publicMintEnd,
+            _publicMintLimit
+        );
     }
 
     function mappedAirdrop(MappedAirdropRecipient[] calldata recipients) external virtual onlyOwner {
-        require(
-            standardInstance.totalSupply() + recipients.length <= standardInstance.maxSupply(),
-            "Max supply exceeded"
-        );
+        uint256 supply = standardInstance.totalSupply();
+        uint256 maxSupply = standardInstance.maxSupply();
+        if (supply + recipients.length > maxSupply) {
+            revert StdErrors.MaxSupplyExceeded(supply, recipients.length, maxSupply);
+        }
         for (uint256 i = 0; i < recipients.length; i++) {
             standardInstance.mint(recipients[i].receiver, recipients[i].tokenId);
         }
     }
 
-    function mintPreSale(MintingToken[] calldata tokens, bytes32[] calldata _merkleProof) external virtual payable {
+    function mintPreSale(MintingToken[] calldata tokens, bytes32[] calldata _merkleProof) external virtual payable nonReentrant {
         uint256 amount = tokens.length;
-        require(block.timestamp >= preMintStart, "presale is not open yet");
-        require(block.timestamp <= preMintEnd, "presale is ended");
-        require(amount > 0, "Amount to mint should be a positive number");
-        require(amount <= preMintTxMaxAmount, "You can mint up to 10 per transaction");
+        _enforceMinterPolicy();
 
-        address minter = _msgSender();
-        require(tx.origin == minter, "Contracts are not allowed to mint");
-        require(standardInstance.totalSupply() + amount <= preMintLimit, "Cannot mint the beyond max preMintLimit");
-        require(preMintPrice * amount == msg.value, "Payment is not equal to price");
+        uint256 nowTs = block.timestamp;
+        if (nowTs < preMintStart) revert StdErrors.SaleNotStarted(preMintStart, nowTs);
+        if (nowTs > preMintEnd) revert StdErrors.SaleEnded(preMintEnd, nowTs);
+        if (amount == 0) revert StdErrors.MintAmountZero();
+        if (amount > preMintTxMaxAmount) revert StdErrors.MintAmountTooLarge(amount, preMintTxMaxAmount);
+
+        uint256 supply = standardInstance.totalSupply();
+        if (supply + amount > preMintLimit) revert StdErrors.MintLimitExceeded(supply, amount, preMintLimit);
+
+        uint256 expected = preMintPrice * amount;
+        if (expected != msg.value) revert StdErrors.IncorrectPayment(expected, msg.value);
 
         bytes32 leafHash = keccak256(abi.encodePacked(msg.sender));
-        require(MerkleProof.verify(_merkleProof, merkleRootHash, leafHash), "Your wallet is not in whitelist");
+        if (!MerkleProof.verify(_merkleProof, merkleRootHash, leafHash)) revert StdErrors.InvalidMerkleProof();
 
         _mintToken(msg.sender, tokens);
 
-        payable(withdrawAddress).transfer(msg.value);
+        _forwardFunds(msg.value);
     }
 
-    function mintPublicSale(MintingToken[] calldata tokens) external virtual payable {
+    function mintPublicSale(MintingToken[] calldata tokens) external virtual payable nonReentrant {
         uint256 amount = tokens.length;
-        require(block.timestamp >= publicMintStart, "Public sale is not open yet");
-        require(block.timestamp <= publicMintEnd, "Public sale is ended");
-        require(amount > 0, "Amount to mint should be a positive number");
-        require(amount <= publicMintTxMaxAmount, "You can mint up to 10 per transaction");
+        _enforceMinterPolicy();
 
-        address minter = _msgSender();
-        require(tx.origin == minter, "Contracts are not allowed to mint");
-        require(standardInstance.totalSupply() + amount <= publicMintLimit, "Cannot mint the beyond max publicMintLimit");
-        require(publicMintPrice * amount == msg.value, "Payment is not equal to price");
+        uint256 nowTs = block.timestamp;
+        if (nowTs < publicMintStart) revert StdErrors.SaleNotStarted(publicMintStart, nowTs);
+        if (nowTs > publicMintEnd) revert StdErrors.SaleEnded(publicMintEnd, nowTs);
+        if (amount == 0) revert StdErrors.MintAmountZero();
+        if (amount > publicMintTxMaxAmount) revert StdErrors.MintAmountTooLarge(amount, publicMintTxMaxAmount);
+
+        uint256 supply = standardInstance.totalSupply();
+        if (supply + amount > publicMintLimit) revert StdErrors.MintLimitExceeded(supply, amount, publicMintLimit);
+
+        uint256 expected = publicMintPrice * amount;
+        if (expected != msg.value) revert StdErrors.IncorrectPayment(expected, msg.value);
 
         _mintToken(msg.sender, tokens);
 
-        payable(withdrawAddress).transfer(msg.value);
+        _forwardFunds(msg.value);
     }
 
     function _mintToken(address newOwner, MintingToken[] calldata tokens) internal virtual {
         for (uint256 i = 0; i < tokens.length; i++) {
             standardInstance.mint(newOwner, tokens[i].tokenId);
         }
+    }
+
+    function _forwardFunds(uint256 amount) internal {
+        (bool ok, ) = withdrawAddress.call{value: amount}("");
+        if (!ok) revert StdErrors.EthTransferFailed(withdrawAddress, amount);
+    }
+
+    function _enforceMinterPolicy() internal view virtual {
+        if (enforceEOA && msg.sender != tx.origin) revert StdErrors.ContractsNotAllowed();
     }
 }
