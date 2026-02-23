@@ -18,6 +18,18 @@ export const IMPLEMENTATION_CONTRACTS = {
     contractName: 'ChainlinkPresetMinimal',
     defaultEstimateGas: 6_800_000,
   },
+  ERC20UUPS: {
+    contractName: 'ERC20UUPS',
+    defaultEstimateGas: 2_500_000,
+  },
+  ERC20Beacon: {
+    contractName: 'ERC20Beacon',
+    defaultEstimateGas: 2_000_000,
+  },
+  ERC20Transparent: {
+    contractName: 'ERC20Transparent',
+    defaultEstimateGas: 1_500_000,
+  },
 } as const;
 
 export type ImplementationContractName = keyof typeof IMPLEMENTATION_CONTRACTS;
@@ -51,4 +63,3 @@ export async function makeImplementationDeployTx(
   const txData = await buildDeployTxData(info.contractName, args, artifact);
   return await makeDeployTx(txData, providerOrUrl, estimateGas ?? info.defaultEstimateGas, executorAddress);
 }
-
