@@ -7,6 +7,10 @@
   },
   "description": "Solidity registry",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leo-yssa/solidity-registry"
+  },
   "files": [
     "dist/lib",
     "contracts"
