@@ -1,6 +1,6 @@
-# npm 배포: 태그 v* 푸시 시 테스트 후 자동 publish
-# 필수: Repository Settings → Secrets and variables → Actions 에 NPM_TOKEN 추가
-# (npm.com → Access Tokens → Generate New Token → Granular Access token, Read and write)
+# npm 배포: 태그 v* 푸시 시 자동 publish (테스트는 ci.yml에서만 수행, 중복 제거)
+# 제약: 태그가 main 또는 master 브랜치의 커밋에 붙어 있을 때만 배포 (그 커밋은 이미 CI 통과)
+# 필수: NPM_TOKEN Secret (Granular Access token, Read and write, Bypass 2FA for publish)
 
 name: Publish to npm
 
@@ -17,6 +17,16 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on default branch
+        run: |
+          git fetch origin main master 2>/dev/null || true
+          if ! git branch -r --contains ${{ github.sha }} | grep -qE 'origin/(main|master)'; then
+            echo "::error::Tag must point to a commit on main or master. This commit is not on the default branch."
+            exit 1
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -33,9 +43,6 @@ jobs:
 
       - name: Build lib
         run: npm run build
-
-      - name: Run tests
-        run: npm run test
 
       - name: Set version from tag
         id: version

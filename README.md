@@ -62,11 +62,14 @@ npm 배포는 **수동 publish 대신 GitHub Actions**로만 수행하는 것을
 1. **Secrets 설정**  
    Repository → Settings → Secrets and variables → Actions 에서 `NPM_TOKEN` 추가  
    - npm.com 로그인 → 프로필 클릭 → **Access Tokens** → **Generate New Token** → **Granular Access token** 선택  
-   - 권한: **Read and write** (패키지 배포용), 적용할 패키지(또는 전체) 지정 후 생성된 토큰(`npm_...`)을 복사해 GitHub Secret에 붙여넣기
+   - 권한: **Read and write** (패키지 배포용), 적용할 패키지(또는 전체) 지정  
+   - **Bypass 2FA for publish** (또는 "2FA 우회") 옵션을 **켜기** — CI에서는 OTP를 입력할 수 없으므로, 이 옵션이 없으면 publish 시 `EOTP` 에러가 납니다.  
+   - 생성된 토큰(`npm_...`)을 복사해 GitHub Secret에 붙여넣기
 
 2. **배포 절차**  
-   - 배포할 버전으로 **태그**를 푸시하면 자동으로 테스트 후 npm publish 됨.  
+   - 배포할 버전으로 **태그**를 푸시하면 자동으로 npm publish 됨. (테스트는 CI에서만 수행, publish 워크플로에서는 중복 제거)  
    - 예: `git tag v1.0.1 && git push origin v1.0.1`  
+   - **제약**: 태그는 **main 또는 master 브랜치에 있는 커밋**에만 붙여야 함. 그렇지 않으면 배포 단계에서 실패함. (main에 푸시 → CI 통과 후 태그 푸시 권장)  
    - 워크플로: [.github/workflows/publish.yml](.github/workflows/publish.yml) (태그 `v*` 푸시 시 실행)
 
 3. **CI**  
