@@ -7,7 +7,7 @@ describe('Standard', () => {
 
     const Standard = await ethers.getContractFactory('Standard', deployer);
     const nft = await Standard.deploy('Test', 'TST', 5, 'ipfs://base/');
-    await nft.deployed();
+    await nft.waitForDeployment();
 
     const MINTER_ROLE = await nft.MINTER_ROLE();
     await nft.grantRole(MINTER_ROLE, minter.address);

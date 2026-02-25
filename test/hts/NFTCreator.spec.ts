@@ -7,13 +7,13 @@ describe('NFTCreator (HTS)', () => {
 
     const Creator = await ethers.getContractFactory('NFTCreator', deployer);
     const c = await Creator.deploy();
-    await c.deployed();
+    await c.waitForDeployment();
 
     await expect(
       c.connect(other).create('N', 'S', 'memo', 100, 60)
     ).to.be.revertedWith('Ownable: caller is not the owner');
 
-    await expect(c.connect(other).mint(ethers.constants.AddressZero, [])).to.be.revertedWith(
+    await expect(c.connect(other).mint(ethers.ZeroAddress, [])).to.be.revertedWith(
       'Ownable: caller is not the owner'
     );
   });

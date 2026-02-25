@@ -1,9 +1,9 @@
-import { ethers } from 'ethers';
+import type { JsonRpcProvider } from 'ethers';
 
 import { SolidityRegistryError } from '../exception';
 import { getJsonRpcProvider } from './provider';
 
-export async function getFeeData(providerOrUrl: string | ethers.providers.JsonRpcProvider) {
+export async function getFeeData(providerOrUrl: string | JsonRpcProvider) {
   try {
     const provider = getJsonRpcProvider(providerOrUrl);
     return await provider.getFeeData();

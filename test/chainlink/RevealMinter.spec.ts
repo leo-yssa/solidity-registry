@@ -7,28 +7,28 @@ describe('RevealMinter / ARevealer', () => {
 
     const MockCoord = await ethers.getContractFactory('MockVRFCoordinatorV2', deployer);
     const coord = await MockCoord.deploy();
-    await coord.deployed();
+    await coord.waitForDeployment();
 
     const NFT = await ethers.getContractFactory('ChainlinkPresetMinimal', deployer);
     const nft = await NFT.deploy('CL', 'CL', 10, 'ipfs://base/');
-    await nft.deployed();
+    await nft.waitForDeployment();
 
     const RevealMinter = await ethers.getContractFactory('RevealMinter', deployer);
-    const merkleRoot = ethers.constants.HashZero;
-    const keyHash = ethers.constants.HashZero;
+    const merkleRoot = ethers.ZeroHash;
+    const keyHash = ethers.ZeroHash;
     const minter = await RevealMinter.deploy(
-      nft.address,
+      await nft.getAddress(),
       1, // subId
-      coord.address,
+      await coord.getAddress(),
       keyHash,
       10, // totalSupply
       withdraw.address,
       merkleRoot
     );
-    await minter.deployed();
+    await minter.waitForDeployment();
 
     const MINTER_ROLE = await nft.MINTER_ROLE();
-    await nft.grantRole(MINTER_ROLE, minter.address);
+    await nft.grantRole(MINTER_ROLE, await minter.getAddress());
 
     // prepare available asset indices
     await minter.setAssetIndexArray(10);
@@ -36,10 +36,12 @@ describe('RevealMinter / ARevealer', () => {
 
     const tx = await minter.mappedAirdrop([{ receiver: alice.address, tokenId: 1 }]);
     const rc = await tx.wait();
-
-    const rolled = rc.events?.find((e) => e.event === 'RandomRolled');
-    expect(rolled, 'RandomRolled not found').to.not.be.undefined;
-    const requestId = rolled!.args!.requestId;
+    if (!rc) throw new Error('no receipt');
+    const topic = minter.interface.getEvent('RandomRolled').topicHash;
+    const log = rc.logs.find((l) => l.topics[0] === topic);
+    expect(log, 'RandomRolled not found').to.not.be.undefined;
+    const parsed = minter.interface.parseLog({ topics: log!.topics as string[], data: log!.data });
+    const requestId = parsed!.args[0];
 
     // roll-in-progress set on both minter and nft
     const ROLL = await minter._ROLL_IN_PROGRESS();
@@ -47,7 +49,7 @@ describe('RevealMinter / ARevealer', () => {
     expect(await nft.tokenIdToAssetIndex(1)).to.eq(ROLL);
 
     // fulfill VRF
-    await coord.fulfill(minter.address, requestId, [7]);
+    await coord.fulfill(await minter.getAddress(), requestId, [7]);
     const idx = await minter.tokenIdToAssetIndex(1);
     expect(idx).to.not.eq(ROLL);
     expect(await nft.tokenIdToAssetIndex(1)).to.eq(idx);
@@ -59,23 +61,23 @@ describe('RevealMinter / ARevealer', () => {
 
     const MockCoord = await ethers.getContractFactory('MockVRFCoordinatorV2', deployer);
     const coord = await MockCoord.deploy();
-    await coord.deployed();
+    await coord.waitForDeployment();
 
     const NFT = await ethers.getContractFactory('ChainlinkPresetMinimal', deployer);
     const nft = await NFT.deploy('CL', 'CL', 10, 'ipfs://base/');
-    await nft.deployed();
+    await nft.waitForDeployment();
 
     const RevealMinter = await ethers.getContractFactory('RevealMinter', deployer);
     const minter = await RevealMinter.deploy(
-      nft.address,
+      await nft.getAddress(),
       1,
-      coord.address,
-      ethers.constants.HashZero,
+      await coord.getAddress(),
+      ethers.ZeroHash,
       10,
       withdraw.address,
-      ethers.constants.HashZero
+      ethers.ZeroHash
     );
-    await minter.deployed();
+    await minter.waitForDeployment();
 
     await expect(minter.connect(alice).tokenRevealByOwner(1)).to.be.revertedWith('Ownable: caller is not the owner');
   });

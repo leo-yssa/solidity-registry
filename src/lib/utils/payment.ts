@@ -1,4 +1,4 @@
-import { BigNumber, ethers } from 'ethers';
+import { parseUnits } from 'ethers';
 
 export const paymentType = {
   ETH: 'ETH',
@@ -6,7 +6,7 @@ export const paymentType = {
 } as const;
 export type PaymentType = (typeof paymentType)[keyof typeof paymentType];
 
-export function convertPriceToBigNumber(amount: string, decimals = 18): BigNumber {
-  return ethers.utils.parseUnits(amount, decimals);
+export function convertPriceToBigNumber(amount: string, decimals = 18): bigint {
+  return parseUnits(amount, decimals);
 }
 

@@ -1,12 +1,10 @@
-import { ethers } from 'ethers';
+import { JsonRpcProvider } from 'ethers';
 
 import { SolidityRegistryError } from '../exception';
 
-export function getJsonRpcProvider(
-  providerOrUrl: string | ethers.providers.JsonRpcProvider,
-): ethers.providers.JsonRpcProvider {
-  if (typeof providerOrUrl === 'string') return new ethers.providers.JsonRpcProvider(providerOrUrl);
-  if (providerOrUrl instanceof ethers.providers.JsonRpcProvider) return providerOrUrl;
+export function getJsonRpcProvider(providerOrUrl: string | JsonRpcProvider): JsonRpcProvider {
+  if (typeof providerOrUrl === 'string') return new JsonRpcProvider(providerOrUrl);
+  if (providerOrUrl instanceof JsonRpcProvider) return providerOrUrl;
   throw new SolidityRegistryError(new Error('Invalid provider or URL provided.'));
 }
 

@@ -10,18 +10,18 @@ describe('StandardMinter', () => {
 
     const Standard = await ethers.getContractFactory('Standard', deployer);
     const nft = await Standard.deploy('Test', 'TST', 100, 'ipfs://base/');
-    await nft.deployed();
+    await nft.waitForDeployment();
 
     const StandardMinter = await ethers.getContractFactory('StandardMinter', deployer);
     const { tree } = buildMerkleTree([alice.address]);
-    const minter = await StandardMinter.deploy(nft.address, withdraw.address, tree.getHexRoot());
-    await minter.deployed();
+    const minter = await StandardMinter.deploy(await nft.getAddress(), withdraw.address, tree.getHexRoot());
+    await minter.waitForDeployment();
 
     const MINTER_ROLE = await nft.MINTER_ROLE();
-    await nft.grantRole(MINTER_ROLE, minter.address);
+    await nft.grantRole(MINTER_ROLE, await minter.getAddress());
 
     const now = await latestTimestamp();
-    await minter.setPreSaleValues(10, ethers.utils.parseEther('0.01'), now + 10, now + 1000, 50);
+    await minter.setPreSaleValues(10, ethers.parseEther('0.01'), now + 10, now + 1000, 50);
     await setNextBlockTimestamp(now + 20);
 
     const tokens = [{ tokenId: 1 }, { tokenId: 2 }];
@@ -29,11 +29,11 @@ describe('StandardMinter', () => {
 
     const before = await ethers.provider.getBalance(withdraw.address);
     await expect(
-      minter.connect(alice).mintPreSale(tokens, proof, { value: ethers.utils.parseEther('0.02') })
+      minter.connect(alice).mintPreSale(tokens, proof, { value: ethers.parseEther('0.02') })
     ).to.not.be.reverted;
     const after = await ethers.provider.getBalance(withdraw.address);
 
-    expect(after.sub(before)).to.eq(ethers.utils.parseEther('0.02'));
+    expect(after - before).to.eq(ethers.parseEther('0.02'));
     expect(await nft.totalSupply()).to.eq(2);
     expect(await nft.ownerOf(1)).to.eq(alice.address);
   });
@@ -43,12 +43,12 @@ describe('StandardMinter', () => {
 
     const Standard = await ethers.getContractFactory('Standard', deployer);
     const nft = await Standard.deploy('Test', 'TST', 100, 'ipfs://base/');
-    await nft.deployed();
+    await nft.waitForDeployment();
 
     const StandardMinter = await ethers.getContractFactory('StandardMinter', deployer);
     const { tree } = buildMerkleTree([alice.address]);
-    const minter = await StandardMinter.deploy(nft.address, withdraw.address, tree.getHexRoot());
-    await minter.deployed();
+    const minter = await StandardMinter.deploy(await nft.getAddress(), withdraw.address, tree.getHexRoot());
+    await minter.waitForDeployment();
 
     expect(await minter.enforceEOA()).to.eq(false);
   });

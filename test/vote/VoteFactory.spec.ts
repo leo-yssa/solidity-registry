@@ -7,25 +7,25 @@ describe('VoteFactory + VoteExecutor', () => {
 
     const VoteFactory = await ethers.getContractFactory('VoteFactory', factoryOwner);
     const factory = await VoteFactory.deploy();
-    await factory.deployed();
+    await factory.waitForDeployment();
 
     const Hasher = await ethers.getContractFactory('MockHasher', executorOwner);
     const hasher = await Hasher.deploy();
-    await hasher.deployed();
+    await hasher.waitForDeployment();
 
     const Verifier = await ethers.getContractFactory('MockVerifier', executorOwner);
     const verifier = await Verifier.deploy();
-    await verifier.deployed();
+    await verifier.waitForDeployment();
 
     const VoteExecutor = await ethers.getContractFactory('VoteExecutor', executorOwner);
-    const executor = await VoteExecutor.deploy(factory.address, 2, hasher.address, verifier.address);
-    await executor.deployed();
+    const executor = await VoteExecutor.deploy(await factory.getAddress(), 2, await hasher.getAddress(), await verifier.getAddress());
+    await executor.waitForDeployment();
 
-    await factory.connect(factoryOwner).setExecutor(executor.address);
+    await factory.connect(factoryOwner).setExecutor(await executor.getAddress());
 
     const hash = 123;
-    const totalReward = ethers.utils.parseEther('1');
-    const perReward = ethers.utils.parseEther('0.1');
+    const totalReward = ethers.parseEther('1');
+    const perReward = ethers.parseEther('0.1');
 
     await factory
       .connect(voteOwner)
@@ -34,7 +34,7 @@ describe('VoteFactory + VoteExecutor', () => {
       });
 
     const voteAddr = await factory.getVoteAddress(hash);
-    expect(voteAddr).to.not.eq(ethers.constants.AddressZero);
+    expect(voteAddr).to.not.eq(ethers.ZeroAddress);
 
     const before = await ethers.provider.getBalance(voter.address);
     await executor
@@ -42,7 +42,7 @@ describe('VoteFactory + VoteExecutor', () => {
       .execute(hash, voter.address, 999, [], [], [], [], [], [], [], []);
     const after = await ethers.provider.getBalance(voter.address);
 
-    expect(after.sub(before)).to.eq(perReward);
+    expect(after - before).to.eq(perReward);
   });
 });
 

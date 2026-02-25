@@ -1,34 +1,33 @@
-import { BigNumber, ethers, Transaction } from 'ethers';
+import type { TransactionRequest } from 'ethers';
+import { getJsonRpcProvider } from '../utils/provider';
 
 import { SolidityRegistryError } from '../exception';
 import { convertPriceToBigNumber } from '../utils/payment';
 import { getFeeData } from '../utils/gasFee';
-import { getJsonRpcProvider } from '../utils/provider';
 
 export async function makeTx(
   txData: string,
-  providerOrUrl: string | ethers.providers.JsonRpcProvider,
+  providerOrUrl: string | import('ethers').JsonRpcProvider,
   estimateGas: number,
   etherValue: string,
   executorAddress: string,
   contractAddress: string,
-): Promise<Transaction> {
+): Promise<TransactionRequest> {
   try {
     const jsonRpcProvider = getJsonRpcProvider(providerOrUrl);
     const feeData = await getFeeData(providerOrUrl);
-    const maxFeePerGas = feeData.maxFeePerGas;
-    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+    const network = await jsonRpcProvider.getNetwork();
 
     return {
       to: contractAddress,
-      value: BigNumber.from(convertPriceToBigNumber(etherValue, 18)),
+      value: convertPriceToBigNumber(etherValue, 18),
       data: txData,
-      gasLimit: BigNumber.from(estimateGas),
-      maxPriorityFeePerGas: maxPriorityFeePerGas ?? undefined,
-      maxFeePerGas: maxFeePerGas ?? undefined,
+      gasLimit: BigInt(estimateGas),
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ?? undefined,
+      maxFeePerGas: feeData.maxFeePerGas ?? undefined,
       nonce: await jsonRpcProvider.getTransactionCount(executorAddress),
-      type: ethers.utils.TransactionTypes.eip1559,
-      chainId: jsonRpcProvider.network.chainId,
+      type: 2,
+      chainId: network.chainId,
     };
   } catch (e) {
     throw new SolidityRegistryError(e);
@@ -37,25 +36,24 @@ export async function makeTx(
 
 export async function makeDeployTx(
   txData: string,
-  providerOrUrl: string | ethers.providers.JsonRpcProvider,
+  providerOrUrl: string | import('ethers').JsonRpcProvider,
   estimateGas: number,
   executorAddress: string,
-): Promise<Transaction> {
+): Promise<TransactionRequest> {
   try {
     const jsonRpcProvider = getJsonRpcProvider(providerOrUrl);
     const feeData = await getFeeData(providerOrUrl);
-    const maxFeePerGas = feeData.maxFeePerGas;
-    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+    const network = await jsonRpcProvider.getNetwork();
 
     return {
       data: txData,
-      value: BigNumber.from(convertPriceToBigNumber('0', 18)),
-      gasLimit: BigNumber.from(estimateGas),
-      maxPriorityFeePerGas: maxPriorityFeePerGas ?? undefined,
-      maxFeePerGas: maxFeePerGas ?? undefined,
+      value: convertPriceToBigNumber('0', 18),
+      gasLimit: BigInt(estimateGas),
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ?? undefined,
+      maxFeePerGas: feeData.maxFeePerGas ?? undefined,
       nonce: await jsonRpcProvider.getTransactionCount(executorAddress),
-      type: ethers.utils.TransactionTypes.eip1559,
-      chainId: jsonRpcProvider.network.chainId,
+      type: 2,
+      chainId: network.chainId,
     };
   } catch (e) {
     throw new SolidityRegistryError(e);
@@ -66,19 +64,18 @@ export async function makeDeployTx(
  * increase maxFeePerGas and maxPriorityFeePerGas.
  * increase unit is 1%
  */
-export function increaseGas(percent: number, transaction: Transaction): Transaction {
+export function increaseGas(percent: number, transaction: TransactionRequest): TransactionRequest {
+  const mul = (v: bigint | undefined) =>
+    v === undefined ? undefined : (v * BigInt(100 + percent)) / BigInt(100);
   return {
-    to: transaction.to,
-    value: transaction.value,
-    data: transaction.data,
-    gasLimit: transaction.gasLimit,
-    maxPriorityFeePerGas: transaction.maxPriorityFeePerGas
-      ? transaction.maxPriorityFeePerGas.mul(100 + percent).div(100)
-      : undefined,
-    maxFeePerGas: transaction.maxFeePerGas ? transaction.maxFeePerGas.mul(100 + percent).div(100) : undefined,
-    nonce: transaction.nonce,
-    type: ethers.utils.TransactionTypes.eip1559,
-    chainId: transaction.chainId,
+    ...transaction,
+    maxPriorityFeePerGas: mul(
+      transaction.maxPriorityFeePerGas !== undefined ? BigInt(transaction.maxPriorityFeePerGas.toString()) : undefined,
+    ),
+    maxFeePerGas: mul(
+      transaction.maxFeePerGas !== undefined ? BigInt(transaction.maxFeePerGas.toString()) : undefined,
+    ),
+    type: 2,
   };
 }
 

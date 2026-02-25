@@ -7,7 +7,7 @@ describe('StandardPresetFull', () => {
 
     const StandardPresetFull = await ethers.getContractFactory('StandardPresetFull', deployer);
     const c = await StandardPresetFull.deploy('Abi', 'ABI', 100, 'ipfs://base/');
-    await c.deployed();
+    await c.waitForDeployment();
 
     const MINTER_ROLE = await c.MINTER_ROLE();
     await c.grantRole(MINTER_ROLE, deployer.address);
@@ -27,7 +27,7 @@ describe('StandardPresetFull', () => {
 
     const StandardPresetFull = await ethers.getContractFactory('StandardPresetFull', deployer);
     const c = await StandardPresetFull.deploy('Abi', 'ABI', 100, 'ipfs://base/');
-    await c.deployed();
+    await c.waitForDeployment();
 
     const MINTER_ROLE = await c.MINTER_ROLE();
     await c.grantRole(MINTER_ROLE, deployer.address);

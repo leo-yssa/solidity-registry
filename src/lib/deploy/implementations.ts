@@ -1,5 +1,5 @@
-import { ethers, Transaction } from 'ethers';
-import { concat, hexlify } from 'ethers/lib/utils';
+import { concat, hexlify, Interface } from 'ethers';
+import type { TransactionRequest } from 'ethers';
 
 import { SolidityRegistryError } from '../exception';
 import { makeDeployTx } from '../transaction/transaction';
@@ -18,23 +18,11 @@ export const IMPLEMENTATION_CONTRACTS = {
     contractName: 'ChainlinkPresetMinimal',
     defaultEstimateGas: 6_800_000,
   },
-  ERC20UUPS: {
-    contractName: 'ERC20UUPS',
-    defaultEstimateGas: 2_500_000,
-  },
-  ERC20Beacon: {
-    contractName: 'ERC20Beacon',
-    defaultEstimateGas: 2_000_000,
-  },
-  ERC20Transparent: {
-    contractName: 'ERC20Transparent',
-    defaultEstimateGas: 1_500_000,
-  },
 } as const;
 
 export type ImplementationContractName = keyof typeof IMPLEMENTATION_CONTRACTS;
 
-export type StandardLikePresetConstructorArgs = [string, string, ethers.BigNumberish, string];
+export type StandardLikePresetConstructorArgs = [string, string, bigint | number, string];
 
 export async function buildDeployTxData(
   contractName: string,
@@ -43,7 +31,7 @@ export async function buildDeployTxData(
 ): Promise<string> {
   try {
     const a = artifact ?? (await readHardhatArtifact(contractName));
-    const iface = new ethers.utils.Interface(a.abi);
+    const iface = new Interface(a.abi);
     const encoded = iface.encodeDeploy(constructorArgs);
     return hexlify(concat([a.bytecode, encoded]));
   } catch (e) {
@@ -54,12 +42,13 @@ export async function buildDeployTxData(
 export async function makeImplementationDeployTx(
   implementation: ImplementationContractName,
   args: StandardLikePresetConstructorArgs,
-  providerOrUrl: string | ethers.providers.JsonRpcProvider,
+  providerOrUrl: string | import('ethers').JsonRpcProvider,
   executorAddress: string,
   estimateGas?: number,
   artifact?: ArtifactLike,
-): Promise<Transaction> {
+): Promise<TransactionRequest> {
   const info = IMPLEMENTATION_CONTRACTS[implementation];
   const txData = await buildDeployTxData(info.contractName, args, artifact);
   return await makeDeployTx(txData, providerOrUrl, estimateGas ?? info.defaultEstimateGas, executorAddress);
 }
+

@@ -56,6 +56,22 @@ const receipt = await (await provider.sendTransaction(signed)).wait();
 console.log('deployed at', receipt.contractAddress);
 ```
 
+### 배포 (npm) — GitHub Actions
+npm 배포는 **수동 publish 대신 GitHub Actions**로만 수행하는 것을 권장합니다.
+
+1. **Secrets 설정**  
+   Repository → Settings → Secrets and variables → Actions 에서 `NPM_TOKEN` 추가  
+   - npm.com 로그인 → 프로필 클릭 → **Access Tokens** → **Generate New Token** → **Granular Access token** 선택  
+   - 권한: **Read and write** (패키지 배포용), 적용할 패키지(또는 전체) 지정 후 생성된 토큰(`npm_...`)을 복사해 GitHub Secret에 붙여넣기
+
+2. **배포 절차**  
+   - 배포할 버전으로 **태그**를 푸시하면 자동으로 테스트 후 npm publish 됨.  
+   - 예: `git tag v1.0.1 && git push origin v1.0.1`  
+   - 워크플로: [.github/workflows/publish.yml](.github/workflows/publish.yml) (태그 `v*` 푸시 시 실행)
+
+3. **CI**  
+   - `main`/`master` 푸시 및 PR 시 설치·컴파일·테스트만 실행: [.github/workflows/ci.yml](.github/workflows/ci.yml)
+
 #### 참고(Chainlink + OZ import)
 `@chainlink/contracts`가 `@openzeppelin/contracts@4.9.6/...` 형태로 import하는 파일이 있어,
 `npm install` 시 `scripts/postinstall.cjs`가 `node_modules/@openzeppelin/contracts@4.9.6` 별칭을 자동 생성합니다.

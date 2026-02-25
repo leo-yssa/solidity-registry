@@ -1,7 +1,7 @@
-import '@nomiclabs/hardhat-ethers';
-import '@typechain/hardhat';
+import '@nomicfoundation/hardhat-ethers';
 import '@nomicfoundation/hardhat-chai-matchers';
 import '@openzeppelin/hardhat-upgrades';
+import '@typechain/hardhat';
 import 'solidity-coverage';
 import 'hardhat-gas-reporter';
 
@@ -46,11 +46,11 @@ const config: HardhatUserConfig = {
       accounts:
         process.env.PRIVATE_KEY !== undefined
           ? [
-            String(process.env.PRIVATE_KEY),
-            String(process.env.PRIVATE_KEY2),
-            String(process.env.PRIVATE_KEY3),
-            String(process.env.PRIVATE_KEY4),
-          ]
+              String(process.env.PRIVATE_KEY),
+              String(process.env.PRIVATE_KEY2),
+              String(process.env.PRIVATE_KEY3),
+              String(process.env.PRIVATE_KEY4),
+            ]
           : [],
     },
     polygon: {
@@ -58,11 +58,11 @@ const config: HardhatUserConfig = {
       accounts:
         process.env.PRIVATE_KEY !== undefined
           ? [
-            String(process.env.PRIVATE_KEY),
-            String(process.env.PRIVATE_KEY2),
-            String(process.env.PRIVATE_KEY3),
-            String(process.env.PRIVATE_KEY4),
-          ]
+              String(process.env.PRIVATE_KEY),
+              String(process.env.PRIVATE_KEY2),
+              String(process.env.PRIVATE_KEY3),
+              String(process.env.PRIVATE_KEY4),
+            ]
           : [],
     },
     mumbai: {
@@ -70,16 +70,17 @@ const config: HardhatUserConfig = {
       accounts:
         process.env.PRIVATE_KEY !== undefined
           ? [
-            String(process.env.PRIVATE_KEY),
-            String(process.env.PRIVATE_KEY2),
-            String(process.env.PRIVATE_KEY3),
-            String(process.env.PRIVATE_KEY4),
-          ]
+              String(process.env.PRIVATE_KEY),
+              String(process.env.PRIVATE_KEY2),
+              String(process.env.PRIVATE_KEY3),
+              String(process.env.PRIVATE_KEY4),
+            ]
           : [],
     },
   },
   typechain: {
     outDir: 'lib/interfaces',
+    target: 'ethers-v6',
   },
 };
 
